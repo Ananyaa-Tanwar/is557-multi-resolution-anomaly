@@ -96,6 +96,13 @@ payment_type, employment_status, housing_status, device_os, source
 ## MVP TARGET
 XGBoost achieving at least 60% Recall at 5% FPR on test set
 
+### Threshold Justification (professor feedback)
+- 5% FPR ceiling: at 1M applications, 5% FPR = ~49,000 legitimate applications
+  wrongly flagged. Beyond that, manual review queue is operationally infeasible
+- 60% Recall floor: catching fewer than 6 in 10 fraudsters pre-approval doesn't
+  justify the false positive burden placed on legitimate customers
+- Together they define the minimum viable operating point for deployment
+
 ---
 
 ## PIPELINE PHASES
@@ -115,6 +122,38 @@ Streamlit app:
 - Flag / Approve decision
 - SHAP chart explaining why flagged
 - Risk bands: 0-30% Low, 30-60% Medium, 60-100% High
+
+---
+
+## PROJECT SIGNIFICANCE (professor feedback)
+Transaction monitoring catches fraud after money has already moved —
+chargebacks, recovery costs, and identity damage are already done.
+Application-stage detection stops the account from being created entirely,
+meaning zero financial loss rather than partial recovery.
+FTC 2023 reported $10B in fraud losses in the US alone — the earlier
+the intervention point, the higher the prevention value.
+This framing should be explicit in the final report introduction.
+
+---
+
+## FAILURE MODE ANALYSIS (professor feedback)
+After training, analyze test set predictions to identify WHY the model fails.
+Group false negatives and false positives by pattern:
+
+### False Negatives (fraud the model missed)
+- Sophisticated fraudsters with realistic income/credit scores and low velocity
+- New fraud patterns emerging in month 7 not present in training months 0-5
+- Fraudsters who avoid device reuse (device_fraud_count = 0)
+
+### False Positives (legit applications wrongly flagged)
+- Legitimate applicants on shared devices (dorms, internet cafes) triggering device flags
+- Foreign students or immigrants flagged by foreign_request + no address history
+- Applicants with missing history fields (sentinel -1 values) misread as suspicious
+
+### Temporal Drift Check
+- Evaluate model separately on month 6 vs month 7
+- If month 7 performance drops noticeably, the model is already degrading
+- This is a real finding worth reporting — fraud tactics evolve faster than static models
 
 ---
 
