@@ -1,5 +1,4 @@
-# Preprocessing pipeline for the fraud detection project (IS557).
-#
+# Preprocessing pipeline
 # Loads Base.csv, engineers a few features, one-hot encodes categoricals,
 # does a temporal train/test split (months 0-5 train, 6-7 test), and
 # MinMax-scales three skewed columns on train only to avoid leakage.

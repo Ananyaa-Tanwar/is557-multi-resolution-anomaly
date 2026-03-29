@@ -18,6 +18,7 @@ from xgboost import XGBClassifier
 from imblearn.over_sampling import SMOTE
 
 SCALE_POS_WEIGHT = 89.7   # 988971 / 11029
+N_JOBS = 2               # cap parallelism — -1 copies full dataset per core
 
 
 class ModelTrainer:
@@ -56,7 +57,7 @@ class ModelTrainer:
         rf = RandomForestClassifier(
             n_estimators=100,
             random_state=42,
-            n_jobs=-1
+            n_jobs=N_JOBS
         )
         rf.fit(self.X_train, self.y_train)
         self._quick_eval(rf, "RF baseline")
@@ -81,8 +82,9 @@ class ModelTrainer:
             scale_pos_weight=SCALE_POS_WEIGHT,
             use_label_encoder=False,
             eval_metric="aucpr",
+            tree_method="hist",
             random_state=42,
-            n_jobs=-1,
+            n_jobs=N_JOBS,
             verbosity=0,
         )
         cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
@@ -90,7 +92,7 @@ class ModelTrainer:
             base_xgb, param_grid,
             scoring="recall",
             cv=cv,
-            n_jobs=-1,
+            n_jobs=1,
             verbose=1,
         )
         grid.fit(self.X_train, self.y_train)
@@ -105,7 +107,7 @@ class ModelTrainer:
     def train_xgb_smote(self):
         # SMOTE only on training data — test set stays untouched
         print("\napplying SMOTE to training set...")
-        sm = SMOTE(random_state=42)
+        sm = SMOTE(random_state=42, sampling_strategy=0.1)
         X_res, y_res = sm.fit_resample(self.X_train, self.y_train)
         print(f"after SMOTE — fraud: {y_res.sum():,}  legit: {(y_res==0).sum():,}")
 
@@ -118,8 +120,9 @@ class ModelTrainer:
         base_xgb = XGBClassifier(
             use_label_encoder=False,
             eval_metric="aucpr",
+            tree_method="hist",
             random_state=42,
-            n_jobs=-1,
+            n_jobs=N_JOBS,
             verbosity=0,
         )
         cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
@@ -127,10 +130,11 @@ class ModelTrainer:
             base_xgb, param_grid,
             scoring="recall",
             cv=cv,
-            n_jobs=-1,
+            n_jobs=1,
             verbose=1,
         )
         grid.fit(X_res, y_res)
+        del X_res, y_res          # free SMOTE data immediately
         best_xgb_smote = grid.best_estimator_
         print(f"best params: {grid.best_params_}")
         self._quick_eval(best_xgb_smote, "XGBoost (SMOTE)")
