@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 .env
 *.csv
+main/code/models/rf_baseline.pkl
+main/MY_PROCESS_LOG.md
+main/MY_TASKS_AND_EXPLANATION.md
