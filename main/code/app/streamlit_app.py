@@ -29,16 +29,16 @@ customer_age = st.sidebar.number_input("Customer Age", min_value=18, max_value=1
 proposed_credit_limit = st.sidebar.number_input("Proposed Credit Limit", min_value=0, value=5000)
 
 employment_label = st.sidebar.selectbox("Employment Status", [
-    "Full Time", "Part Time", "Self Employed", "Unemployed", "Retired", "Student", "Other"
+    "Full Time", "Part Time", "Self Employed", "Student", "Unemployed", "Retired", "Other"
 ])
 employment_map = {
     "Full Time": "CA", "Part Time": "CB", "Self Employed": "CC",
-    "Unemployed": "CD", "Retired": "CE", "Student": "CF", "Other": "CG"
+    "Student": "CF", "Unemployed": "CD", "Retired": "CE", "Other": "CG"
 }
 employment_status = employment_map[employment_label]
 
 housing_label = st.sidebar.selectbox("Housing Status", [
-    "Private Renter", "Owner with Mortgage", "Outright Homeowner",
+    "Owner with Mortgage", "Outright Homeowner", "Private Renter",
     "Living with Family", "Temporary Accommodation", "Social Housing", "Other"
 ])
 housing_map = {
@@ -48,33 +48,69 @@ housing_map = {
 }
 housing_status = housing_map[housing_label]
 
-st.sidebar.subheader("Financial Details")
-intended_balcon_amount = st.sidebar.number_input("Intended Balance/Transfer Amount", min_value=-5.0, value=0.0, step=0.1, format="%.2f")
-
 st.sidebar.subheader("Contact & Identity")
 phone_mobile_valid = st.sidebar.selectbox("Mobile Phone Valid?", [1, 0])
-phone_home_valid = st.sidebar.selectbox("Home Phone Valid?", [1, 0])
 has_other_cards = st.sidebar.selectbox("Has Other Cards?", [1, 0])
 
 source_label = st.sidebar.selectbox("Application Source", ["Online / App", "Bank Assisted"])
 source = "INTERNET" if source_label == "Online / App" else "TELEAPP"
 
-# --- SYSTEM DEFAULTS (medians from X_train) ---
-system_defaults = {
-    "name_email_similarity": 0.4997,
-    "prev_address_months_count": -1.0,
-    "current_address_months_count": 53.0,
-    "days_since_request": 0.0002,
-    "date_of_birth_distinct_emails_4w": 9.0,
-    "credit_risk_score": 120.0,
-    "device_distinct_emails_8w": 1.0,
-    "session_length_in_minutes": 0.0717,
-    "keep_alive_session": 1.0,
-    "bank_months_count": 5.0,
-    "device_os": "linux",
+# --- SCENARIO SELECTOR ---
+st.sidebar.subheader("Background Scenario")
+st.sidebar.caption("Simulates backend signals the bank system would compute automatically")
+scenario = st.sidebar.selectbox("Select Scenario", [
+    "Typical Legit", "Suspicious", "Edge Case"
+])
+
+# Background fields per scenario — from Rahul's spec doc
+scenario_defaults = {
+    "Typical Legit": {
+        "name_email_similarity": 0.8,
+        "prev_address_months_count": 24,
+        "current_address_months_count": 36,
+        "keep_alive_session": 1,
+        "credit_risk_score": 120,
+        "foreign_request": 0,
+        "phone_home_valid": 1,
+        "email_is_free": 0,
+        "bank_months_count": 24,
+        "device_os": "windows",
+    },
+    "Suspicious": {
+        "name_email_similarity": 0.1,
+        "prev_address_months_count": -1,
+        "current_address_months_count": 6,
+        "keep_alive_session": 0,
+        "credit_risk_score": 200,
+        "foreign_request": 1,
+        "phone_home_valid": 0,
+        "email_is_free": 1,
+        "bank_months_count": -1,
+        "device_os": "linux",
+    },
+    "Edge Case": {
+        "name_email_similarity": 0.5,
+        "prev_address_months_count": -1,
+        "current_address_months_count": 12,
+        "keep_alive_session": 1,
+        "credit_risk_score": 160,
+        "foreign_request": 0,
+        "phone_home_valid": 0,
+        "email_is_free": 1,
+        "bank_months_count": 6,
+        "device_os": "windows",
+    },
 }
 
-# Exact 47-column order from X_test.csv
+# Fixed system fields not in scenario (use training medians)
+fixed_defaults = {
+    "days_since_request": 0.0002,
+    "session_length_in_minutes": 0.0717,
+    "date_of_birth_distinct_emails_4w": 9.0,
+    "device_distinct_emails_8w": 1.0,
+    "intended_balcon_amount": 0.0,
+}
+
 COLUMN_ORDER = [
     "income", "name_email_similarity", "prev_address_months_count",
     "current_address_months_count", "customer_age", "days_since_request",
@@ -93,39 +129,58 @@ COLUMN_ORDER = [
 ]
 
 def preprocess_input():
+    bg = scenario_defaults[scenario]
+
     row = {
+        # user inputs
         "income": income,
         "customer_age": customer_age,
         "proposed_credit_limit": proposed_credit_limit,
-        "intended_balcon_amount": intended_balcon_amount,
         "phone_mobile_valid": phone_mobile_valid,
-        "phone_home_valid": phone_home_valid,
         "has_other_cards": has_other_cards,
-        "email_is_free": 1,       # median from training
-        "foreign_request": 0,     # median from training
-        **system_defaults,
+        # scenario background fields
+        "name_email_similarity": bg["name_email_similarity"],
+        "prev_address_months_count": bg["prev_address_months_count"],
+        "current_address_months_count": bg["current_address_months_count"],
+        "keep_alive_session": bg["keep_alive_session"],
+        "credit_risk_score": bg["credit_risk_score"],
+        "foreign_request": bg["foreign_request"],
+        "phone_home_valid": bg["phone_home_valid"],
+        "email_is_free": bg["email_is_free"],
+        "bank_months_count": bg["bank_months_count"],
+        # fixed system defaults
+        "days_since_request": fixed_defaults["days_since_request"],
+        "session_length_in_minutes": fixed_defaults["session_length_in_minutes"],
+        "date_of_birth_distinct_emails_4w": fixed_defaults["date_of_birth_distinct_emails_4w"],
+        "device_distinct_emails_8w": fixed_defaults["device_distinct_emails_8w"],
+        "intended_balcon_amount": fixed_defaults["intended_balcon_amount"],
     }
 
     df = pd.DataFrame([row])
 
-    # Feature engineering — matches new preprocess.py
+    # Feature engineering
     df["has_prev_address"] = (df["prev_address_months_count"] != -1).astype(int)
     df["credit_to_income_ratio"] = df["proposed_credit_limit"] / (df["income"] + 1)
 
-    # One-hot encode
+    # One-hot encode payment type — use mode (AB) as default
     for pt in ["AA", "AB", "AC", "AD", "AE"]:
-        df[f"payment_type_{pt}"] = int("AB" == pt)  # mode from training
+        df[f"payment_type_{pt}"] = int("AB" == pt)
+
+    # One-hot encode employment status
     for es in ["CA", "CB", "CC", "CD", "CE", "CF", "CG"]:
         df[f"employment_status_{es}"] = int(employment_status == es)
+
+    # One-hot encode housing status
     for hs in ["BA", "BB", "BC", "BD", "BE", "BF", "BG"]:
         df[f"housing_status_{hs}"] = int(housing_status == hs)
+
+    # One-hot encode device OS from scenario
     for os_ in ["linux", "macintosh", "other", "windows", "x11"]:
-        df[f"device_os_{os_}"] = int(system_defaults["device_os"] == os_)
+        df[f"device_os_{os_}"] = int(bg["device_os"] == os_)
+
+    # One-hot encode source
     for src in ["INTERNET", "TELEAPP"]:
         df[f"source_{src}"] = int(source == src)
-
-    # Drop raw categorical columns
-    df = df.drop(columns=["device_os"])
 
     # Scale
     scale_cols = ["days_since_request", "session_length_in_minutes", "intended_balcon_amount"]
@@ -145,7 +200,7 @@ if st.sidebar.button("Analyze Application"):
     prob = model.predict_proba(input_df)[0][1]
     score = round(prob * 100, 2)
 
-    # SHAP via pred_contribs
+    # SHAP
     dmatrix = xgb.DMatrix(input_df)
     contribs = model.get_booster().predict(dmatrix, pred_contribs=True)
     shap_vals = contribs[0][:-1]
