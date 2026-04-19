@@ -24,7 +24,8 @@ st.caption("Bank Account: Application-Stage Detection")
 st.sidebar.header("Application Details")
 
 st.sidebar.subheader("Applicant Profile")
-income = st.sidebar.number_input("Income (0-1 normalized)", min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.2f")
+income_raw = st.sidebar.number_input("Annual Income ($)", min_value=0, max_value=200000, value=40000, step=1000)
+income = income_raw / 200000
 customer_age = st.sidebar.number_input("Customer Age", min_value=18, max_value=100, value=30)
 proposed_credit_limit = st.sidebar.number_input("Proposed Credit Limit", min_value=0, value=5000)
 
@@ -33,7 +34,7 @@ employment_label = st.sidebar.selectbox("Employment Status", [
 ])
 employment_map = {
     "Full Time": "CA", "Part Time": "CB", "Self Employed": "CC",
-    "Student": "CF", "Unemployed": "CD", "Retired": "CE", "Other": "CG"
+    "Student": "CD", "Unemployed": "CE", "Retired": "CF", "Other": "CG"
 }
 employment_status = employment_map[employment_label]
 
@@ -62,7 +63,6 @@ scenario = st.sidebar.selectbox("Select Scenario", [
     "Typical Legit", "Suspicious", "Edge Case"
 ])
 
-# Background fields per scenario — from Rahul's spec doc
 scenario_defaults = {
     "Typical Legit": {
         "name_email_similarity": 0.8,
@@ -102,7 +102,6 @@ scenario_defaults = {
     },
 }
 
-# Fixed system fields not in scenario (use training medians)
 fixed_defaults = {
     "days_since_request": 0.0002,
     "session_length_in_minutes": 0.0717,
@@ -132,13 +131,11 @@ def preprocess_input():
     bg = scenario_defaults[scenario]
 
     row = {
-        # user inputs
         "income": income,
         "customer_age": customer_age,
         "proposed_credit_limit": proposed_credit_limit,
         "phone_mobile_valid": phone_mobile_valid,
         "has_other_cards": has_other_cards,
-        # scenario background fields
         "name_email_similarity": bg["name_email_similarity"],
         "prev_address_months_count": bg["prev_address_months_count"],
         "current_address_months_count": bg["current_address_months_count"],
@@ -148,7 +145,6 @@ def preprocess_input():
         "phone_home_valid": bg["phone_home_valid"],
         "email_is_free": bg["email_is_free"],
         "bank_months_count": bg["bank_months_count"],
-        # fixed system defaults
         "days_since_request": fixed_defaults["days_since_request"],
         "session_length_in_minutes": fixed_defaults["session_length_in_minutes"],
         "date_of_birth_distinct_emails_4w": fixed_defaults["date_of_birth_distinct_emails_4w"],
@@ -158,35 +154,27 @@ def preprocess_input():
 
     df = pd.DataFrame([row])
 
-    # Feature engineering
     df["has_prev_address"] = (df["prev_address_months_count"] != -1).astype(int)
     df["credit_to_income_ratio"] = df["proposed_credit_limit"] / (df["income"] + 1)
 
-    # One-hot encode payment type — use mode (AB) as default
     for pt in ["AA", "AB", "AC", "AD", "AE"]:
         df[f"payment_type_{pt}"] = int("AB" == pt)
 
-    # One-hot encode employment status
     for es in ["CA", "CB", "CC", "CD", "CE", "CF", "CG"]:
         df[f"employment_status_{es}"] = int(employment_status == es)
 
-    # One-hot encode housing status
     for hs in ["BA", "BB", "BC", "BD", "BE", "BF", "BG"]:
         df[f"housing_status_{hs}"] = int(housing_status == hs)
 
-    # One-hot encode device OS from scenario
     for os_ in ["linux", "macintosh", "other", "windows", "x11"]:
         df[f"device_os_{os_}"] = int(bg["device_os"] == os_)
 
-    # One-hot encode source
     for src in ["INTERNET", "TELEAPP"]:
         df[f"source_{src}"] = int(source == src)
 
-    # Scale
     scale_cols = ["days_since_request", "session_length_in_minutes", "intended_balcon_amount"]
     df[scale_cols] = scaler.transform(df[scale_cols])
 
-    # Enforce exact 47-column order
     df = df[COLUMN_ORDER]
 
     return df
@@ -196,11 +184,9 @@ if st.sidebar.button("Analyze Application"):
 
     input_df = preprocess_input()
 
-    # Prediction
     prob = model.predict_proba(input_df)[0][1]
     score = round(prob * 100, 2)
 
-    # SHAP
     dmatrix = xgb.DMatrix(input_df)
     contribs = model.get_booster().predict(dmatrix, pred_contribs=True)
     shap_vals = contribs[0][:-1]
@@ -211,7 +197,6 @@ if st.sidebar.button("Analyze Application"):
         "shap_value": shap_vals
     }).sort_values("shap_value", key=abs, ascending=False).head(10)
 
-    # --- MAIN PANEL ---
     st.subheader("Risk Assessment")
     col1, col2 = st.columns(2)
 
@@ -219,16 +204,16 @@ if st.sidebar.button("Analyze Application"):
         st.metric(label="Fraud Risk Score", value=f"{score:.2f}%")
 
     with col2:
+        THRESHOLD = 51.87
         if score < 30:
             st.success("Risk Band: LOW")
-        elif score < 60:
+        elif score < THRESHOLD:
             st.warning("Risk Band: MEDIUM")
         else:
             st.error("Risk Band: HIGH")
 
     st.divider()
 
-    # --- SHAP Waterfall ---
     st.subheader("Why was this flagged?")
     st.caption("Waterfall chart: How each feature pushes the score up (red) or down (blue) from the baseline")
 
