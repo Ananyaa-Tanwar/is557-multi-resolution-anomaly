@@ -192,11 +192,50 @@ if st.sidebar.button("Analyze Application"):
     shap_vals = contribs[0][:-1]
     base_value = contribs[0][-1]
 
-    shap_df = pd.DataFrame({
-        "feature": COLUMN_ORDER,
-        "shap_value": shap_vals
-    }).sort_values("shap_value", key=abs, ascending=False).head(10)
+    # --- SHAP: group OHE columns + rename to readable labels ---
+    shap_series = pd.Series(shap_vals, index=COLUMN_ORDER)
 
+    LABEL_MAP = {
+        "income":                       "Income",
+        "customer_age":                 "Customer Age",
+        "proposed_credit_limit":        "Proposed Credit Limit",
+        "phone_mobile_valid":           "Mobile Phone Valid",
+        "has_other_cards":              "Has Other Cards",
+        "has_prev_address":             "Has Previous Address",
+        "credit_to_income_ratio":       "Credit-to-Income Ratio",
+        "name_email_similarity":        "Name–Email Similarity",
+        "prev_address_months_count":    "Prev. Address Duration (mo.)",
+        "current_address_months_count": "Current Address Duration (mo.)",
+        "keep_alive_session":           "Session Kept Alive",
+        "credit_risk_score":            "Credit Risk Score",
+        "foreign_request":              "Foreign Request",
+        "phone_home_valid":             "Home Phone Valid",
+        "email_is_free":                "Free Email Provider",
+        "bank_months_count":            "Bank Relationship (mo.)",
+    }
+
+    visible_cols = [
+        "income", "customer_age", "proposed_credit_limit",
+        "phone_mobile_valid", "has_other_cards",
+        "has_prev_address", "credit_to_income_ratio",
+        "name_email_similarity", "prev_address_months_count",
+        "current_address_months_count", "keep_alive_session",
+        "credit_risk_score", "foreign_request", "phone_home_valid",
+        "email_is_free", "bank_months_count",
+    ]
+    grouped = {LABEL_MAP[c]: shap_series[c] for c in visible_cols}
+
+    # Sum all OHE columns per categorical — only one is active (=1) so sum equals that column's SHAP
+    grouped["Employment Status"]  = shap_series[[c for c in COLUMN_ORDER if c.startswith("employment_status_")]].sum()
+    grouped["Housing Status"]     = shap_series[[c for c in COLUMN_ORDER if c.startswith("housing_status_")]].sum()
+    grouped["Device OS"]          = shap_series[[c for c in COLUMN_ORDER if c.startswith("device_os_")]].sum()
+    grouped["Application Source"] = shap_series[[c for c in COLUMN_ORDER if c.startswith("source_")]].sum()
+
+    shap_df = pd.DataFrame(
+        [{"feature": k, "shap_value": v} for k, v in grouped.items()]
+    ).sort_values("shap_value", key=abs, ascending=False).head(10)
+
+    # --- MAIN PANEL ---
     st.subheader("Risk Assessment")
     col1, col2 = st.columns(2)
 
