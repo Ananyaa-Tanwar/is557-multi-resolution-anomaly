@@ -20,7 +20,7 @@ model, scaler = load_model()
 st.title("Early Fraud Signal System")
 st.caption("Bank Account: Application-Stage Detection")
 
-# --- SIDEBAR ---
+# Sidebar
 st.sidebar.header("Application Details")
 
 st.sidebar.subheader("Applicant Profile")
@@ -56,7 +56,7 @@ has_other_cards = st.sidebar.selectbox("Has Other Cards?", [1, 0])
 source_label = st.sidebar.selectbox("Application Source", ["Online / App", "Bank Assisted"])
 source = "INTERNET" if source_label == "Online / App" else "TELEAPP"
 
-# --- SCENARIO SELECTOR ---
+# Building the Scenario Selector
 st.sidebar.subheader("Background Scenario")
 st.sidebar.caption("Simulates backend signals the bank system would compute automatically")
 scenario = st.sidebar.selectbox("Select Scenario", [
@@ -179,7 +179,7 @@ def preprocess_input():
 
     return df
 
-# --- ANALYZE BUTTON ---
+# Analyze button
 if st.sidebar.button("Analyze Application"):
 
     input_df = preprocess_input()
@@ -192,7 +192,7 @@ if st.sidebar.button("Analyze Application"):
     shap_vals = contribs[0][:-1]
     base_value = contribs[0][-1]
 
-    # --- SHAP: group OHE columns + rename to readable labels ---
+    # SHAP: group OHE columns + renaming to readable labels
     shap_series = pd.Series(shap_vals, index=COLUMN_ORDER)
 
     LABEL_MAP = {
@@ -225,7 +225,7 @@ if st.sidebar.button("Analyze Application"):
     ]
     grouped = {LABEL_MAP[c]: shap_series[c] for c in visible_cols}
 
-    # Sum all OHE columns per categorical — only one is active (=1) so sum equals that column's SHAP
+    # Sum all OHE columns per categorical, only one is active (=1) so sum equals that column's SHAP
     grouped["Employment Status"]  = shap_series[[c for c in COLUMN_ORDER if c.startswith("employment_status_")]].sum()
     grouped["Housing Status"]     = shap_series[[c for c in COLUMN_ORDER if c.startswith("housing_status_")]].sum()
     grouped["Device OS"]          = shap_series[[c for c in COLUMN_ORDER if c.startswith("device_os_")]].sum()
@@ -235,7 +235,7 @@ if st.sidebar.button("Analyze Application"):
         [{"feature": k, "shap_value": v} for k, v in grouped.items()]
     ).sort_values("shap_value", key=abs, ascending=False).head(10)
 
-    # --- MAIN PANEL ---
+    # Main Panel
     st.subheader("Risk Assessment")
     col1, col2 = st.columns(2)
 
