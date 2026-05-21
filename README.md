@@ -2,6 +2,7 @@
 
 Banks get hit by fraud at the application stage itself, someone submits fake or stolen identity details, gets approved, and the damage is done before any transaction even happens. I built a system that scores each application the moment it comes in and flags it as fraud or not. The decision threshold is set using real industry cost data rather than an arbitrary cutoff, and every prediction comes with a SHAP explanation showing exactly which signals drove the decision.
 
+Try the Application here: https://is557aml.streamlit.app/
 
 ---
 
